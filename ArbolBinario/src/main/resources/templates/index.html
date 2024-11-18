@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autocompletado de Palabras</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script> <!-- Confetti -->
+    <style>
+        /* Sugerencias */
+        .suggestions {
+            margin-top: 8px;
+            border: 1px solid #e5e7eb;
+            max-width: 100%;
+            padding: 12px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.3s ease;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f3f4f6;
+        }
+
+        /* Transición para los contenedores */
+        .fade-in {
+            opacity: 1;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        /* Botones */
+        .btn {
+            background-color: #4CAF50; /* Verde brillante */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 1rem;
+            text-align: center;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #45a049; /* Color verde más oscuro */
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            background-color: #388e3c; /* Color verde aún más oscuro */
+            box-shadow: none;
+        }
+
+        /* Mensaje de error */
+        .error-message {
+            color: red;
+            font-size: 0.875rem;
+            margin-top: 10px;
+        }
+
+        /* Mensaje de éxito */
+        .success-message {
+            color: green;
+            font-size: 0.875rem;
+            margin-top: 10px;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Contenedor principal -->
+    <div class="max-w-4xl mx-auto mt-20 p-8 bg-white rounded-xl shadow-2xl">
+
+        <!-- Título -->
+        <h1 class="text-3xl font-semibold text-center mb-8 text-gray-900">Autocompletado de Palabras</h1>
+
+        <!-- Formulario principal -->
+        <form class="space-y-6">
+
+
+            <!-- Contenedor para la búsqueda -->
+            <div id="search-container" class="fade-in mt-6">
+                <input type="text" id="input-prefijo" class="input-field px-4 py-3 rounded-lg border-2 border-gray-300 w-full text-lg" placeholder="Escribe un prefijo para buscar..." />
+                <div id="suggestions" class="suggestions"></div>
+            </div>
+
+            <!-- Contenedor para agregar palabra -->
+            <div id="add-container" class="fade-out mt-6" style="display: none;"></div>
+                <input type="text" id="input-agregar" class="input-field px-4 py-3 rounded-lg border-2 border-gray-300 w-full text-lg" placeholder="Escribe la palabra a agregar..." />
+                <button type="button" id="btn-agregar" class="btn mt-4">Agregar palabra</button>
+                <div id="add-message" class="error-message mt-2"></div>
+                <div id="add-success-message" class="success-message mt-2" style="display: none;">Palabra agregada correctamente!</div> <!-- Mensaje de éxito -->
+            </div>
+
+        </form>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            // Mostrar el contenedor de "Buscar" y ocultar el de "Agregar" al cargar la página
+            $('#search-container').show();
+            $('#add-container').hide();
+            $('#add-message').hide();
+            $('#add-success-message').hide();
+
+            // Mostrar el contenedor de "Buscar" y ocultar el de "Agregar"
+            $('#option-search').click(function () {
+                $('#search-container').fadeIn();
+                $('#add-container').fadeOut();
+                $('#add-message').hide();
+                $('#add-success-message').hide();
+            });
+
+            // Mostrar el contenedor de "Agregar" y ocultar el de "Buscar"
+            $('#option-add').click(function () {
+                $('#add-container').fadeIn();
+                $('#search-container').fadeOut();
+                $('#add-message').hide();
+                $('#add-success-message').hide();
+            });
+
+            // Autocompletado de búsqueda
+            $('#input-prefijo').on('input', function () {
+                var prefijo = $(this).val();
+
+                if (prefijo.length > 0) {
+                    // Hacemos la llamada a la API para obtener las sugerencias
+                    $.get('/api/autocompletar/sugerencias', { prefijo: prefijo }, function (data) {
+                        $('#suggestions').empty();
+                        if (data.length > 0) {
+                            data.forEach(function (suggestion) {
+                                $('#suggestions').append('<div class="suggestion-item">' + suggestion + '</div>');
+                            });
+                            $('#suggestions').show();
+                        } else {
+                            $('#suggestions').html('<div class="suggestion-item">No se encontraron resultados</div>');
+                            $('#suggestions').show();
+                        }
+                    });
+                } else {
+                    $('#suggestions').hide();
+                }
+            });
+
+            // Selección de sugerencia con el mouse
+            $(document).on('click', '.suggestion-item', function () {
+                $('#input-prefijo').val($(this).text());
+                $('#suggestions').hide();
+            });
+
+            // Agregar palabra
+            $('#btn-agregar').click(function () {
+    var nuevaPalabra = $('#input-agregar').val();
+    $('#add-message').hide();
+    $('#add-success-message').hide();  // Ocultar mensaje de éxito en cada intento
+
+    if (nuevaPalabra) {
+        $.post('/api/autocompletar/agregar', { palabra: nuevaPalabra }, function (response) {
+            console.log(response);  // Para depuración
+
+            // Si la respuesta es una cadena que contiene "Palabra agregada"
+            if (typeof response === 'string' && response.includes("Palabra agregada")) {
+                $('#add-message').removeClass('error-message').addClass('success-message').text('Palabra agregada con éxito');
+                $('#add-success-message').show();
+                $('#input-agregar').val(''); // Limpiar campo
+
+                // Efecto confeti
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { x: 0.5, y: 0.5 }
+                });
+            } else {
+                $('#add-message').removeClass('success-message').addClass('error-message').text('Error al agregar la palabra.');
+                $('#add-message').show();
+            }
+        }).fail(function() {
+            $('#add-message').removeClass('success-message').addClass('error-message').text('Error al conectar con el servidor.');
+            $('#add-message').show();
+        });
+    } else {
+        $('#add-message').removeClass('success-message').addClass('error-message').text("Por favor ingresa una palabra.");
+        $('#add-message').show();
+    }
+});
+
+        });
+    </script>
+
+</body>
+</html>
